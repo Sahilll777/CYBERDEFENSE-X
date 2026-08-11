@@ -17,3 +17,14 @@ def test_health_check():
         "environment": "development",
         "version": "0.1.0",
     }
+
+
+def test_database_health_check():
+    response = client.get("/health/database")
+
+    assert response.status_code == 200
+
+    assert response.json() == {
+        "status": "healthy",
+        "database": "postgresql",
+    }
