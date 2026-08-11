@@ -23,6 +23,27 @@ class UserRegisterRequest(BaseModel):
     )
 
 
+class UserLoginRequest(BaseModel):
+    """Request payload for user authentication."""
+
+    username: str = Field(
+        min_length=3,
+        max_length=50,
+    )
+
+    password: str = Field(
+        min_length=1,
+        max_length=128,
+    )
+
+
+class TokenResponse(BaseModel):
+    """JWT access-token response."""
+
+    access_token: str
+    token_type: str = "bearer"
+
+
 class UserResponse(BaseModel):
     """Safe public representation of an application user."""
 

@@ -1,29 +1,46 @@
 from functools import lru_cache
-from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-ENV_FILE = PROJECT_ROOT / ".env"
-
-
 class Settings(BaseSettings):
+    """Application configuration loaded from environment variables."""
+
+    # ---------------------------------------------------------
+    # Application
+    # ---------------------------------------------------------
     app_name: str = "CYBERDEFENSE-X"
     app_env: str = "development"
     debug: bool = False
 
-    backend_host: str = "0.0.0.0"
+    # ---------------------------------------------------------
+    # Backend
+    # ---------------------------------------------------------
+    backend_host: str = "127.0.0.1"
     backend_port: int = 8000
 
-    postgres_host: str = "localhost"
+    # ---------------------------------------------------------
+    # PostgreSQL
+    # ---------------------------------------------------------
+    postgres_host: str = "127.0.0.1"
     postgres_port: int = 5433
     postgres_db: str = "cyberdefense"
     postgres_user: str = "cyberdefense"
-    postgres_password: str = ""
+    postgres_password: str
+
+    # ---------------------------------------------------------
+    # JWT
+    # ---------------------------------------------------------
+    jwt_secret_key: str = Field(min_length=32)
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = Field(
+        default=30,
+        gt=0,
+    )
 
     model_config = SettingsConfigDict(
-        env_file=ENV_FILE,
+        env_file="../.env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -31,8 +48,10 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        """Build the PostgreSQL SQLAlchemy connection URL."""
+
         return (
-            f"postgresql+psycopg://"
+            "postgresql+psycopg://"
             f"{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}"
             f"/{self.postgres_db}"
@@ -41,4 +60,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()   
+    """Return the cached application settings instance."""
+
+    return Settings()
