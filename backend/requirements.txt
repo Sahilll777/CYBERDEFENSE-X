@@ -1,2 +1,6 @@
-fastapi
-uvicorn[standard]
+﻿fastapi==0.141.1
+uvicorn[standard]==0.52.1
+pydantic-settings
+pytest
+httpx
+httpx2
