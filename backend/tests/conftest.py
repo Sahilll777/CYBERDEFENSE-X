@@ -18,6 +18,19 @@ def _cleanup_test_data(db: Session) -> None:
     """
 
     # ---------------------------------------------------------
+    # Detection Rule test data
+    # ---------------------------------------------------------
+    db.execute(
+        text(
+            """
+            DELETE FROM detection_rules
+            WHERE name LIKE 'api-%'
+            OR name LIKE 'test-%'
+            """
+        )
+    )
+
+    # ---------------------------------------------------------
     # Security Event API test data
     # ---------------------------------------------------------
     db.execute(
@@ -83,6 +96,30 @@ def _cleanup_test_data(db: Session) -> None:
                 FROM roles
                 WHERE name LIKE 'TEST_ROLE_event_api_%'
             )
+            """
+        )
+    )
+
+    # ---------------------------------------------------------
+    # Remove Detection Rule test users
+    # ---------------------------------------------------------
+    db.execute(
+        text(
+            """
+            DELETE FROM users
+            WHERE username LIKE 'detection_rule_%'
+            """
+        )
+    )
+
+    # ---------------------------------------------------------
+    # Remove Detection Rule API test users
+    # ---------------------------------------------------------
+    db.execute(
+        text(
+            """
+            DELETE FROM users
+            WHERE username LIKE 'api_%'
             """
         )
     )
