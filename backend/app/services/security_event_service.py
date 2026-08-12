@@ -3,7 +3,9 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.models.security_event import SecurityEvent
-from app.repositories.security_event_repository import SecurityEventRepository
+from app.repositories.security_event_repository import (
+    SecurityEventRepository,
+)
 from app.schemas.security_event import SecurityEventCreate
 
 
@@ -40,7 +42,9 @@ class SecurityEventService:
     ) -> SecurityEvent | None:
         """Retrieve a security event by ID."""
 
-        return self.security_event_repository.get_by_id(event_id)
+        return self.security_event_repository.get_by_id(
+            event_id
+        )
 
     def list_events(
         self,
@@ -56,6 +60,33 @@ class SecurityEventService:
         """Retrieve security events using repository filters."""
 
         return self.security_event_repository.list_events(
+            limit=limit,
+            offset=offset,
+            severity=severity,
+            event_type=event_type,
+            source=source,
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+    def search_events(
+        self,
+        *,
+        query: str,
+        limit: int = 100,
+        offset: int = 0,
+        severity: str | None = None,
+        event_type: str | None = None,
+        source: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+    ) -> tuple[list[SecurityEvent], int]:
+        """
+        Search security events using free-text and structured filters.
+        """
+
+        return self.security_event_repository.search_events(
+            query=query,
             limit=limit,
             offset=offset,
             severity=severity,

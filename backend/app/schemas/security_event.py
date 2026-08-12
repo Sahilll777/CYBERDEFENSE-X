@@ -66,31 +66,24 @@ class SecurityEventResponse(BaseModel):
 
     model_config = ConfigDict(
         from_attributes=True,
-        populate_by_name=True,
     )
 
     id: int
-
     event_type: str
-
     severity: SecurityEventSeverity
-
     source: str
-
     source_ip: str | None
-
     destination_ip: str | None
-
     username: str | None
-
     hostname: str | None
-
     message: str
-
     event_timestamp: datetime
-
-    metadata: dict[str, Any] = Field(
-        validation_alias="event_metadata",
-    )
-
+    metadata: dict[str, Any]
     created_at: datetime
+
+
+class SecurityEventSearchResponse(BaseModel):
+    """Paginated search response for security events."""
+
+    items: list[SecurityEventResponse]
+    total: int

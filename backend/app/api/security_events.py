@@ -8,10 +8,10 @@ from app.models.user import User
 from app.schemas.security_event import (
     SecurityEventCreate,
     SecurityEventResponse,
+    SecurityEventSearchResponse,
 )
 from app.security.authorization import require_permission
 from app.services.security_event_service import SecurityEventService
-
 
 router = APIRouter(
     prefix="/api/v1/events",
@@ -92,6 +92,63 @@ def list_security_events(
         end_time=end_time,
     )
 
+
+@router.get(
+    "/search",
+    response_model=SecurityEventSearchResponse,
+)
+def search_security_events(
+    q: str = Query(
+        min_length=1,
+        max_length=500,
+    ),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permission("events.read")
+    ),
+    limit: int = Query(
+        default=100,
+        ge=1,
+        le=500,
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+    ),
+    severity: str | None = Query(
+        default=None,
+        max_length=20,
+    ),
+    event_type: str | None = Query(
+        default=None,
+        max_length=100,
+    ),
+    source: str | None = Query(
+        default=None,
+        max_length=100,
+    ),
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+) -> SecurityEventSearchResponse:
+    """Search security events using free-text and structured filters."""
+
+    service = SecurityEventService(db)
+
+    events, total = service.search_events(
+        query=q,
+        limit=limit,
+        offset=offset,
+        severity=severity,
+        event_type=event_type,
+        source=source,
+        start_time=start_time,
+        end_time=end_time,
+    )
+
+    return SecurityEventSearchResponse(
+        items=events,
+        total=total,
+    )
 
 @router.get(
     "/{event_id}",

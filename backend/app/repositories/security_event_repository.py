@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.security_event import SecurityEvent
@@ -13,7 +13,10 @@ class SecurityEventRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_by_id(self, event_id: int) -> SecurityEvent | None:
+    def get_by_id(
+        self,
+        event_id: int,
+    ) -> SecurityEvent | None:
         """Return a security event by its primary key."""
 
         statement = select(SecurityEvent).where(
@@ -105,3 +108,89 @@ class SecurityEventRepository:
         )
 
         return list(self.db.scalars(statement).all())
+
+    def search_events(
+        self,
+        *,
+        query: str,
+        limit: int = 100,
+        offset: int = 0,
+        severity: str | None = None,
+        event_type: str | None = None,
+        source: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+    ) -> tuple[list[SecurityEvent], int]:
+        """
+        Search security events using free-text and structured filters.
+
+        The free-text query is matched case-insensitively against:
+        - event type
+        - source
+        - source IP
+        - destination IP
+        - username
+        - hostname
+        - message
+        """
+
+        search_pattern = f"%{query}%"
+
+        search_condition = or_(
+            SecurityEvent.event_type.ilike(search_pattern),
+            SecurityEvent.source.ilike(search_pattern),
+            SecurityEvent.source_ip.ilike(search_pattern),
+            SecurityEvent.destination_ip.ilike(search_pattern),
+            SecurityEvent.username.ilike(search_pattern),
+            SecurityEvent.hostname.ilike(search_pattern),
+            SecurityEvent.message.ilike(search_pattern),
+        )
+
+        filters = [search_condition]
+
+        if severity is not None:
+            filters.append(
+                SecurityEvent.severity == severity
+            )
+
+        if event_type is not None:
+            filters.append(
+                SecurityEvent.event_type == event_type
+            )
+
+        if source is not None:
+            filters.append(
+                SecurityEvent.source == source
+            )
+
+        if start_time is not None:
+            filters.append(
+                SecurityEvent.event_timestamp >= start_time
+            )
+
+        if end_time is not None:
+            filters.append(
+                SecurityEvent.event_timestamp <= end_time
+            )
+
+        count_statement = (
+            select(func.count())
+            .select_from(SecurityEvent)
+            .where(*filters)
+        )
+
+        total = self.db.scalar(count_statement) or 0
+
+        statement = (
+            select(SecurityEvent)
+            .where(*filters)
+            .order_by(SecurityEvent.event_timestamp.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+
+        events = list(
+            self.db.scalars(statement).all()
+        )
+
+        return events, total
