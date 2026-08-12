@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -33,7 +34,7 @@ class SecurityEventRepository:
         destination_ip: str | None = None,
         username: str | None = None,
         hostname: str | None = None,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> SecurityEvent:
         """Create and persist a security event."""
 
@@ -47,7 +48,7 @@ class SecurityEventRepository:
             hostname=hostname,
             message=message,
             event_timestamp=event_timestamp,
-            metadata=metadata or {},
+            event_metadata=metadata or {},
         )
 
         self.db.add(event)

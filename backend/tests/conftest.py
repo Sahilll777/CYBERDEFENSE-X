@@ -5,18 +5,33 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 
 
-def _cleanup_rbac_test_data(db: Session) -> None:
+def _cleanup_test_data(db: Session) -> None:
     """
-    Remove database records created by RBAC API integration tests.
+    Remove database records created by integration tests.
 
-    RBAC API tests intentionally commit their transactions because the
-    application itself commits database changes. Therefore, a normal
-    session rollback cannot provide test isolation.
+    Integration tests intentionally commit their transactions because
+    the application itself commits database changes. Therefore, a
+    normal session rollback cannot provide test isolation.
 
-    This cleanup targets only records created by the RBAC tests and does
-    not remove seeded production roles or permissions.
+    This cleanup targets only records created by integration tests and
+    does not remove seeded production roles or permissions.
     """
 
+    # ---------------------------------------------------------
+    # Security Event API test data
+    # ---------------------------------------------------------
+    db.execute(
+        text(
+            """
+            DELETE FROM security_events
+            WHERE source = 'security-event-api-test'
+            """
+        )
+    )
+
+    # ---------------------------------------------------------
+    # Remove RBAC test role-permission mappings
+    # ---------------------------------------------------------
     db.execute(
         text(
             """
@@ -30,6 +45,9 @@ def _cleanup_rbac_test_data(db: Session) -> None:
         )
     )
 
+    # ---------------------------------------------------------
+    # Remove RBAC test user-role mappings
+    # ---------------------------------------------------------
     db.execute(
         text(
             """
@@ -48,6 +66,30 @@ def _cleanup_rbac_test_data(db: Session) -> None:
         )
     )
 
+    # ---------------------------------------------------------
+    # Remove Security Event API test user-role mappings
+    # ---------------------------------------------------------
+    db.execute(
+        text(
+            """
+            DELETE FROM user_roles
+            WHERE user_id IN (
+                SELECT id
+                FROM users
+                WHERE username LIKE 'event_api_%'
+            )
+            OR role_id IN (
+                SELECT id
+                FROM roles
+                WHERE name LIKE 'TEST_ROLE_event_api_%'
+            )
+            """
+        )
+    )
+
+    # ---------------------------------------------------------
+    # Remove RBAC test roles
+    # ---------------------------------------------------------
     db.execute(
         text(
             """
@@ -57,11 +99,26 @@ def _cleanup_rbac_test_data(db: Session) -> None:
         )
     )
 
+    # ---------------------------------------------------------
+    # Remove RBAC test users
+    # ---------------------------------------------------------
     db.execute(
         text(
             """
             DELETE FROM users
             WHERE username LIKE 'rbac_%'
+            """
+        )
+    )
+
+    # ---------------------------------------------------------
+    # Remove Security Event API test users
+    # ---------------------------------------------------------
+    db.execute(
+        text(
+            """
+            DELETE FROM users
+            WHERE username LIKE 'event_api_%'
             """
         )
     )
@@ -74,21 +131,22 @@ def db_session() -> Session:
     """
     Provide a PostgreSQL session for database-backed tests.
 
-    RBAC integration tests commit their changes, so the fixture performs
-    explicit cleanup before and after each test to guarantee repeatability.
+    Integration tests commit their changes, so the fixture performs
+    explicit cleanup before and after each test to guarantee
+    repeatability.
     """
 
     db = SessionLocal()
 
     try:
         # Remove leftovers from previous interrupted/failed test runs.
-        _cleanup_rbac_test_data(db)
+        _cleanup_test_data(db)
 
         yield db
 
     finally:
         try:
             db.rollback()
-            _cleanup_rbac_test_data(db)
+            _cleanup_test_data(db)
         finally:
             db.close()

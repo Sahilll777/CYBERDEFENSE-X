@@ -71,6 +71,9 @@ class SecurityEvent(Base):
         index=True,
     )
 
+    # SQLAlchemy reserves the Python attribute name "metadata".
+    # Therefore the Python ORM attribute is event_metadata while
+    # the actual PostgreSQL column remains named "metadata".
     event_metadata: Mapped[dict[str, Any]] = mapped_column(
         "metadata",
         JSONB,
@@ -103,3 +106,27 @@ class SecurityEvent(Base):
             "event_timestamp",
         ),
     )
+
+
+# -------------------------------------------------------------------------
+# Compatibility alias
+# -------------------------------------------------------------------------
+#
+# IMPORTANT:
+# This must be defined AFTER the SQLAlchemy declarative class has been
+# constructed. Defining it inside SecurityEvent would overwrite the
+# inherited SQLAlchemy "metadata" attribute and break table construction.
+#
+# Database column:
+#     metadata
+#
+# SQLAlchemy mapped attribute:
+#     event_metadata
+#
+# Application-level attribute:
+#     event.metadata
+#
+SecurityEvent.metadata = property(
+    lambda self: self.event_metadata,
+    lambda self, value: setattr(self, "event_metadata", value),
+)

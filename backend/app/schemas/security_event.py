@@ -64,17 +64,33 @@ class SecurityEventCreate(BaseModel):
 class SecurityEventResponse(BaseModel):
     """Public API representation of a security event."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+    )
 
     id: int
+
     event_type: str
+
     severity: SecurityEventSeverity
+
     source: str
+
     source_ip: str | None
+
     destination_ip: str | None
+
     username: str | None
+
     hostname: str | None
+
     message: str
+
     event_timestamp: datetime
-    metadata: dict[str, Any]
+
+    metadata: dict[str, Any] = Field(
+        validation_alias="event_metadata",
+    )
+
     created_at: datetime
