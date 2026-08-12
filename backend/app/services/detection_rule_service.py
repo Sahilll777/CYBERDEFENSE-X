@@ -86,6 +86,16 @@ class DetectionRuleService:
             created_by_user_id=created_by_user_id,
         )
 
+    def list_enabled_rules(self) -> list[DetectionRule]:
+        """
+        Retrieve every enabled detection rule.
+
+        This method is intended for the detection engine and therefore
+        does not apply API pagination.
+        """
+
+        return self.detection_rule_repository.list_enabled_rules()
+
     def update_rule(
         self,
         *,
@@ -130,7 +140,8 @@ class DetectionRuleService:
         *,
         rule_id: int,
     ) -> bool:
-        """Delete a detection rule.
+        """
+        Delete a detection rule.
 
         Returns True when the rule existed and was deleted,
         otherwise returns False.

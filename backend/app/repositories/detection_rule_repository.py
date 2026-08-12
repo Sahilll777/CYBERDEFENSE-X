@@ -99,10 +99,6 @@ class DetectionRuleRepository:
                 DetectionRule.created_by_user_id == created_by_user_id
             )
 
-        # Order by creation time first.
-        #
-        # ID is used as a deterministic tie-breaker because multiple
-        # records can legitimately have the same created_at timestamp.
         statement = (
             statement
             .order_by(
@@ -111,6 +107,25 @@ class DetectionRuleRepository:
             )
             .offset(offset)
             .limit(limit)
+        )
+
+        return list(self.db.scalars(statement).all())
+
+    def list_enabled_rules(self) -> list[DetectionRule]:
+        """
+        Return all enabled detection rules in deterministic order.
+
+        This method intentionally does not use API pagination because
+        the detection engine must evaluate every enabled rule.
+        """
+
+        statement = (
+            select(DetectionRule)
+            .where(DetectionRule.enabled.is_(True))
+            .order_by(
+                DetectionRule.created_at.desc(),
+                DetectionRule.id.desc(),
+            )
         )
 
         return list(self.db.scalars(statement).all())
