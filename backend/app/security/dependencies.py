@@ -1,10 +1,11 @@
-from typing import Annotated
+from typing import Annotated, Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.user import User
 from app.repositories.user_repository import UserRepository
 from app.security.jwt import decode_access_token
 
@@ -20,7 +21,7 @@ def get_current_user(
         Depends(bearer_scheme),
     ],
     db: Annotated[Session, Depends(get_db)],
-):
+) -> User:
     """Resolve the authenticated user from a JWT access token."""
 
     unauthorized_exception = HTTPException(
@@ -63,3 +64,40 @@ def get_current_user(
         )
 
     return user
+
+
+def require_permission(permission_name: str) -> Callable:
+    """
+    Create a FastAPI dependency that requires a specific permission.
+
+    Example:
+
+        Depends(require_permission("alerts.read"))
+    """
+
+    def permission_dependency(
+        current_user: Annotated[
+            User,
+            Depends(get_current_user),
+        ],
+    ) -> User:
+        """Verify that the authenticated user has the required permission."""
+
+        if current_user.is_superuser:
+            return current_user
+
+        user_permissions = {
+            permission.name
+            for role in current_user.roles
+            for permission in role.permissions
+        }
+
+        if permission_name not in user_permissions:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission required: {permission_name}",
+            )
+
+        return current_user
+
+    return permission_dependency
