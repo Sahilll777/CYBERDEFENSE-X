@@ -4,8 +4,16 @@ from app.schemas.auth import (
     UserRegisterRequest,
     UserResponse,
 )
+from app.schemas.security_event import (
+    SecurityEventCreate,
+    SecurityEventResponse,
+    SecurityEventSeverity,
+)
 
 __all__ = [
+    "SecurityEventCreate",
+    "SecurityEventResponse",
+    "SecurityEventSeverity",
     "TokenResponse",
     "UserLoginRequest",
     "UserRegisterRequest",
