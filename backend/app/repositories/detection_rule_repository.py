@@ -113,10 +113,10 @@ class DetectionRuleRepository:
 
     def list_enabled_rules(self) -> list[DetectionRule]:
         """
-        Return all enabled detection rules in deterministic order.
+        Return every enabled detection rule.
 
-        This method intentionally does not use API pagination because
-        the detection engine must evaluate every enabled rule.
+        This method intentionally does not apply API pagination because
+        the detection engine must evaluate the complete enabled rule set.
         """
 
         statement = (

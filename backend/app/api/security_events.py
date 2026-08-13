@@ -13,6 +13,7 @@ from app.schemas.security_event import (
 from app.security.authorization import require_permission
 from app.services.security_event_service import SecurityEventService
 
+
 router = APIRouter(
     prefix="/api/v1/events",
     tags=["Security Events"],
@@ -31,13 +32,15 @@ def create_security_event(
         require_permission("events.create")
     ),
 ) -> SecurityEventResponse:
-    """Create a new security event."""
+    """Create and evaluate a new security event."""
 
     service = SecurityEventService(db)
 
-    created_event = service.create_event(
+    ingestion_result = service.create_event_with_detection(
         event=event,
     )
+
+    created_event = ingestion_result.event
 
     db.commit()
     db.refresh(created_event)
@@ -149,6 +152,7 @@ def search_security_events(
         items=events,
         total=total,
     )
+
 
 @router.get(
     "/{event_id}",
