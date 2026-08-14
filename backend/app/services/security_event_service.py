@@ -9,10 +9,11 @@ from app.repositories.security_event_repository import (
     SecurityEventRepository,
 )
 from app.schemas.security_event import SecurityEventCreate
+from app.services.alert.service import AlertService
 from app.services.detection.detection_engine import DetectionEngine
 from app.services.detection.rule_provider import DetectionRuleProvider
-from app.services.detection_rule_service import DetectionRuleService
 from app.services.detection_match.service import DetectionMatchService
+from app.services.detection_rule_service import DetectionRuleService
 from app.services.security_event_ingestion import (
     SecurityEventIngestionResult,
 )
@@ -28,6 +29,7 @@ class SecurityEventService:
     ):
         self.security_event_repository = SecurityEventRepository(db)
         self.detection_match_service = DetectionMatchService(db)
+        self.alert_service = AlertService(db)
 
         if detection_engine is not None:
             self.detection_engine = detection_engine
@@ -69,14 +71,14 @@ class SecurityEventService:
     ) -> SecurityEventIngestionResult:
         """
         Create a security event, evaluate it against enabled
-        detection rules, and persist detection matches.
+        detection rules, and persist detection matches and alerts.
 
         The event repository flushes the newly created event so that
         the event receives its database ID before detection evaluation.
 
-        Each matching rule produces one DetectionMatch. Existing
-        event/rule matches are reused by DetectionMatchService so
-        duplicate detection records are not created.
+        Each matching rule produces one DetectionMatch and one Alert.
+        Existing event/rule matches and detection-match/alert pairs are
+        reused so duplicate records are not created.
         """
 
         created_event = self.create_event(
@@ -88,7 +90,7 @@ class SecurityEventService:
         )
 
         for rule in detection_result.matched_rules:
-            self.detection_match_service.create_match(
+            detection_match = self.detection_match_service.create_match(
                 security_event_id=created_event.id,
                 detection_rule_id=rule.id,
                 severity=rule.severity,
@@ -97,6 +99,19 @@ class SecurityEventService:
                     "rule_type": rule.rule_type,
                     "rule_name": rule.name,
                 },
+            )
+
+            self.alert_service.create_alert(
+                detection_match_id=detection_match.id,
+                security_event_id=created_event.id,
+                detection_rule_id=rule.id,
+                severity=rule.severity,
+                title=f"Detection rule matched: {rule.name}",
+                description=(
+                    rule.description
+                    or created_event.message
+                ),
+                opened_at=created_event.event_timestamp,
             )
 
         return SecurityEventIngestionResult(
@@ -112,7 +127,7 @@ class SecurityEventService:
         """Retrieve a security event by ID."""
 
         return self.security_event_repository.get_by_id(
-            event_id
+            event_id,
         )
 
     def list_events(
