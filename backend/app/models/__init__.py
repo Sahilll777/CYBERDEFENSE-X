@@ -5,6 +5,7 @@ from app.models.detection_rule import DetectionRule
 from app.models.incident import Incident
 from app.models.permission import Permission
 from app.models.playbook import Playbook
+from app.models.playbook_execution import PlaybookExecution
 from app.models.role import Role
 from app.models.security_event import SecurityEvent
 from app.models.user import User
@@ -16,6 +17,7 @@ __all__ = [
     "Incident",
     "Permission",
     "Playbook",
+    "PlaybookExecution",
     "Role",
     "SecurityEvent",
     "User",
