@@ -1,11 +1,21 @@
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class PlaybookExecutionStatus(str, Enum):
     """Supported playbook execution lifecycle states."""
+
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class PlaybookExecutionActionStatus(str, Enum):
+    """Supported individual playbook action execution states."""
 
     PENDING = "PENDING"
     RUNNING = "RUNNING"
@@ -56,5 +66,26 @@ class PlaybookExecutionResponse(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     error_message: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PlaybookExecutionActionResponse(BaseModel):
+    """Public API representation of an individual action execution."""
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+    id: int
+    execution_id: int
+    action_index: int
+    action_type: str
+    status: PlaybookExecutionActionStatus
+    parameters: dict[str, Any]
+    result: dict[str, Any] | None
+    error_message: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
     created_at: datetime
     updated_at: datetime

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.playbook_execution import (
+    PlaybookExecutionActionResponse,
     PlaybookExecutionCreate,
     PlaybookExecutionFail,
     PlaybookExecutionResponse,
@@ -140,6 +141,76 @@ def get_execution(
         )
 
     return execution
+
+
+@router.get(
+    "/{execution_id}/actions",
+    response_model=list[PlaybookExecutionActionResponse],
+)
+def list_action_executions(
+    execution_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permission("playbooks.read")
+    ),
+) -> list[PlaybookExecutionActionResponse]:
+    """Return all persisted action executions for an execution."""
+
+    service = PlaybookExecutionService(db)
+
+    execution = service.get_execution(
+        execution_id=execution_id,
+    )
+
+    if execution is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Playbook execution not found.",
+        )
+
+    return service.list_action_executions(
+        execution_id,
+    )
+
+
+@router.get(
+    "/{execution_id}/actions/{action_id}",
+    response_model=PlaybookExecutionActionResponse,
+)
+def get_action_execution(
+    execution_id: int,
+    action_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permission("playbooks.read")
+    ),
+) -> PlaybookExecutionActionResponse:
+    """Return one persisted action execution."""
+
+    service = PlaybookExecutionService(db)
+
+    execution = service.get_execution(
+        execution_id=execution_id,
+    )
+
+    if execution is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Playbook execution not found.",
+        )
+
+    action = service.get_action_execution(
+        execution_id=execution_id,
+        action_id=action_id,
+    )
+
+    if action is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Playbook execution action not found.",
+        )
+
+    return action
 
 
 @router.post(

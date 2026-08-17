@@ -4,6 +4,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.models.playbook_execution import PlaybookExecution
+from app.models.playbook_execution_action import (
+    PlaybookExecutionAction,
+)
 from app.repositories.playbook.playbook_repository import (
     PlaybookRepository,
 )
@@ -101,12 +104,37 @@ class PlaybookExecutionService:
     def list_action_executions(
         self,
         execution_id: int,
-    ):
+    ) -> list[PlaybookExecutionAction]:
         """Return persisted action records for an execution."""
 
         return self.action_repository.list_by_execution_id(
             execution_id
         )
+
+    def get_action_execution(
+        self,
+        execution_id: int,
+        action_id: int,
+    ) -> PlaybookExecutionAction | None:
+        """
+        Return one persisted action execution belonging to
+        the specified playbook execution.
+
+        An action belonging to another execution is treated as
+        not found to prevent cross-execution data exposure.
+        """
+
+        action = self.action_repository.get_by_id(
+            action_id
+        )
+
+        if action is None:
+            return None
+
+        if action.execution_id != execution_id:
+            return None
+
+        return action
 
     def start_execution(
         self,
@@ -159,12 +187,7 @@ class PlaybookExecutionService:
                 f"Playbook {execution.playbook_id} not found."
             )
 
-        if not playbook.enabled:
-            raise ValueError(
-                f"Playbook '{playbook.name}' is disabled."
-            )
-
-        actions = self.engine.get_actions(
+        actions = self.engine._extract_actions(
             playbook.definition
         )
 
@@ -196,7 +219,7 @@ class PlaybookExecutionService:
             )
 
             try:
-                result = self.engine.execute_action(
+                result = self.engine.registry.execute(
                     action_type=action_type,
                     parameters=parameters,
                     context=execution_context,
@@ -204,12 +227,11 @@ class PlaybookExecutionService:
 
             except Exception as exc:
                 completed_at = datetime.now(timezone.utc)
-                error_message = str(exc)
 
                 self.action_repository.mark_failed(
                     action_record,
                     completed_at=completed_at,
-                    error_message=error_message,
+                    error_message=str(exc),
                 )
 
                 results.append(
@@ -218,7 +240,7 @@ class PlaybookExecutionService:
                         "type": action_type,
                         "status": "FAILED",
                         "result": None,
-                        "error_message": error_message,
+                        "error_message": str(exc),
                     }
                 )
 
@@ -310,11 +332,11 @@ class PlaybookExecutionService:
         Flow:
 
             PENDING
-              ?
+              ↓
             RUNNING
-              ?
-            ACTION 0 ? ACTION 1 ? ACTION N
-              ?
+              ↓
+        ACTION 0 → ACTION 1 → ACTION N
+              ↓
         COMPLETED / FAILED
         """
 
