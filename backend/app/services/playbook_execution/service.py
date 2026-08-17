@@ -187,7 +187,7 @@ class PlaybookExecutionService:
                 f"Playbook {execution.playbook_id} not found."
             )
 
-        actions = self.engine._extract_actions(
+        actions = self.engine.get_actions(
             playbook.definition
         )
 
@@ -219,7 +219,7 @@ class PlaybookExecutionService:
             )
 
             try:
-                result = self.engine.registry.execute(
+                result = self.engine.execute_action(
                     action_type=action_type,
                     parameters=parameters,
                     context=execution_context,
@@ -329,15 +329,15 @@ class PlaybookExecutionService:
         """
         Execute an entire playbook execution lifecycle.
 
-        Flow:
+        The lifecycle is:
 
             PENDING
               ↓
             RUNNING
               ↓
-        ACTION 0 → ACTION 1 → ACTION N
+            ACTIONS
               ↓
-        COMPLETED / FAILED
+            COMPLETED / FAILED
         """
 
         execution = self.start_execution(

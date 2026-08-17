@@ -41,6 +41,14 @@ class PlaybookExecutionCreate(BaseModel):
     )
 
 
+class PlaybookExecutionRun(BaseModel):
+    """Request payload for running a playbook execution."""
+
+    context: dict[str, Any] = Field(
+        default_factory=dict,
+    )
+
+
 class PlaybookExecutionFail(BaseModel):
     """Request payload for failing a playbook execution."""
 

@@ -8,6 +8,7 @@ from app.schemas.playbook_execution import (
     PlaybookExecutionCreate,
     PlaybookExecutionFail,
     PlaybookExecutionResponse,
+    PlaybookExecutionRun,
     PlaybookExecutionStatus,
 )
 from app.security.authorization import require_permission
@@ -211,6 +212,79 @@ def get_action_execution(
         )
 
     return action
+
+
+@router.post(
+    "/{execution_id}/run",
+    response_model=PlaybookExecutionResponse,
+)
+def run_execution(
+    execution_id: int,
+    payload: PlaybookExecutionRun | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permission("playbooks.execute")
+    ),
+) -> PlaybookExecutionResponse:
+    """
+    Execute an entire playbook execution lifecycle.
+
+    The lifecycle is:
+
+        PENDING
+          ↓
+        RUNNING
+          ↓
+        ACTIONS
+          ↓
+        COMPLETED / FAILED
+
+    If execution fails, the failure state and any persisted
+    action failure are committed before the HTTP error is returned.
+    """
+
+    service = PlaybookExecutionService(db)
+
+    context = (
+        payload.context
+        if payload is not None
+        else {}
+    )
+
+    try:
+        execution = service.run_execution(
+            execution_id,
+            context=context,
+        )
+
+    except ValueError as exc:
+        db.commit()
+
+        message = str(exc)
+
+        if "not found" in message.lower():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=message,
+            ) from exc
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=message,
+        ) from exc
+
+    except Exception as exc:
+        db.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Playbook execution failed.",
+        ) from exc
+
+    db.commit()
+    db.refresh(execution)
+
+    return execution
 
 
 @router.post(
