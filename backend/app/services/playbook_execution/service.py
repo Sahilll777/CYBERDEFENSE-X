@@ -1,10 +1,17 @@
 from datetime import datetime, timezone
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.models.playbook_execution import PlaybookExecution
 from app.repositories.playbook_execution import (
     PlaybookExecutionRepository,
+)
+from app.repositories.playbook.playbook_repository import (
+    PlaybookRepository,
+)
+from app.services.playbook_execution.engine import (
+    PlaybookExecutionEngine,
 )
 
 
@@ -21,6 +28,8 @@ class PlaybookExecutionService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.repository = PlaybookExecutionRepository(db)
+        self.playbook_repository = PlaybookRepository(db)
+        self.engine = PlaybookExecutionEngine()
 
     def create_execution(
         self,
@@ -32,15 +41,27 @@ class PlaybookExecutionService:
     ) -> PlaybookExecution:
         """Create a new execution in the PENDING state."""
 
-        execution = self.repository.create(
+        playbook = self.playbook_repository.get_by_id(
+            playbook_id
+        )
+
+        if playbook is None:
+            raise ValueError(
+                f"Playbook {playbook_id} not found."
+            )
+
+        if not playbook.enabled:
+            raise ValueError(
+                f"Playbook '{playbook.name}' is disabled."
+            )
+
+        return self.repository.create(
             playbook_id=playbook_id,
             incident_id=incident_id,
             alert_id=alert_id,
             triggered_by_user_id=triggered_by_user_id,
             status="PENDING",
         )
-
-        return execution
 
     def get_execution(
         self,
@@ -79,7 +100,9 @@ class PlaybookExecutionService:
     ) -> PlaybookExecution:
         """Move an execution from PENDING to RUNNING."""
 
-        execution = self._get_required_execution(execution_id)
+        execution = self._get_required_execution(
+            execution_id
+        )
 
         self._validate_transition(
             current_status=execution.status,
@@ -93,13 +116,51 @@ class PlaybookExecutionService:
             started_at=started_at,
         )
 
+    def execute_execution(
+        self,
+        execution_id: int,
+        *,
+        context: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Execute a running playbook execution.
+
+        The execution must already be in the RUNNING state.
+        The playbook is resolved from the execution record.
+        """
+
+        execution = self._get_required_execution(
+            execution_id
+        )
+
+        self._validate_execution_state(
+            execution,
+            expected_status="RUNNING",
+        )
+
+        playbook = self.playbook_repository.get_by_id(
+            execution.playbook_id
+        )
+
+        if playbook is None:
+            raise ValueError(
+                f"Playbook {execution.playbook_id} not found."
+            )
+
+        return self.engine.execute(
+            playbook=playbook,
+            context=context,
+        )
+
     def complete_execution(
         self,
         execution_id: int,
     ) -> PlaybookExecution:
         """Move an execution from RUNNING to COMPLETED."""
 
-        execution = self._get_required_execution(execution_id)
+        execution = self._get_required_execution(
+            execution_id
+        )
 
         self._validate_transition(
             current_status=execution.status,
@@ -126,7 +187,9 @@ class PlaybookExecutionService:
                 "error_message cannot be empty."
             )
 
-        execution = self._get_required_execution(execution_id)
+        execution = self._get_required_execution(
+            execution_id
+        )
 
         self._validate_transition(
             current_status=execution.status,
@@ -141,13 +204,58 @@ class PlaybookExecutionService:
             error_message=error_message.strip(),
         )
 
+    def run_execution(
+        self,
+        execution_id: int,
+        *,
+        context: dict[str, Any] | None = None,
+    ) -> PlaybookExecution:
+        """
+        Execute an entire playbook execution lifecycle.
+
+        Flow:
+
+            PENDING
+              ↓
+            RUNNING
+              ↓
+            ENGINE
+              ↓
+        COMPLETED / FAILED
+        """
+
+        execution = self.start_execution(
+            execution_id
+        )
+
+        try:
+            self.execute_execution(
+                execution.id,
+                context=context,
+            )
+
+        except Exception as exc:
+            self.fail_execution(
+                execution.id,
+                error_message=str(exc),
+            )
+            raise
+
+        self.complete_execution(
+            execution.id
+        )
+
+        return execution
+
     def _get_required_execution(
         self,
         execution_id: int,
     ) -> PlaybookExecution:
         """Return an execution or raise a not-found error."""
 
-        execution = self.repository.get_by_id(execution_id)
+        execution = self.repository.get_by_id(
+            execution_id
+        )
 
         if execution is None:
             raise ValueError(
@@ -155,6 +263,21 @@ class PlaybookExecutionService:
             )
 
         return execution
+
+    def _validate_execution_state(
+        self,
+        execution: PlaybookExecution,
+        *,
+        expected_status: str,
+    ) -> None:
+        """Validate that an execution has the expected state."""
+
+        if execution.status != expected_status:
+            raise ValueError(
+                "Invalid playbook execution state: "
+                f"expected {expected_status}, "
+                f"got {execution.status}."
+            )
 
     def _validate_transition(
         self,
