@@ -52,6 +52,15 @@ class Alert(Base):
         index=True,
     )
 
+    incident_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "incidents.id",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+        index=True,
+    )
+
     severity: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
@@ -134,6 +143,12 @@ class Alert(Base):
     detection_rule = relationship(
         "DetectionRule",
         foreign_keys=[detection_rule_id],
+    )
+
+    incident = relationship(
+        "Incident",
+        foreign_keys=[incident_id],
+        back_populates="alerts",
     )
 
     assigned_to = relationship(

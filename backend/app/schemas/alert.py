@@ -24,6 +24,7 @@ class AlertResponse(BaseModel):
     detection_match_id: int
     security_event_id: int
     detection_rule_id: int
+    incident_id: int | None
     severity: str
     status: AlertStatus
     title: str
@@ -45,4 +46,20 @@ class AlertUpdate(BaseModel):
     assigned_to_user_id: int | None = Field(
         default=None,
         ge=1,
+    )
+
+
+class AlertIncidentAttach(BaseModel):
+    """Request payload for associating an alert with an incident."""
+
+    incident_id: int = Field(
+        ge=1,
+    )
+
+
+class AlertIncidentDetach(BaseModel):
+    """Request payload for removing an alert from an incident."""
+
+    model_config = ConfigDict(
+        extra="forbid",
     )

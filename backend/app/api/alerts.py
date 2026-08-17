@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.alert import (
+    AlertIncidentAttach,
     AlertResponse,
     AlertStatus,
     AlertUpdate,
@@ -58,6 +59,10 @@ def list_alerts(
         default=None,
         ge=1,
     ),
+    incident_id: int | None = Query(
+        default=None,
+        ge=1,
+    ),
     start_time: datetime | None = None,
     end_time: datetime | None = None,
 ) -> list[AlertResponse]:
@@ -77,9 +82,149 @@ def list_alerts(
         assigned_to_user_id=assigned_to_user_id,
         security_event_id=security_event_id,
         detection_rule_id=detection_rule_id,
+        incident_id=incident_id,
         start_time=start_time,
         end_time=end_time,
     )
+
+
+@router.get(
+    "/by-incident/{incident_id}",
+    response_model=list[AlertResponse],
+)
+def get_alerts_for_incident(
+    incident_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permission("alerts.read")
+    ),
+    limit: int = Query(
+        default=100,
+        ge=1,
+        le=500,
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+    ),
+) -> list[AlertResponse]:
+    """Return all alerts associated with a specific incident."""
+
+    service = AlertService(db)
+
+    try:
+        return service.get_alerts_for_incident(
+            incident_id=incident_id,
+            limit=limit,
+            offset=offset,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get(
+    "/{alert_id}/incident",
+    response_model=AlertResponse,
+)
+def get_alert_incident(
+    alert_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permission("alerts.read")
+    ),
+) -> AlertResponse:
+    """
+    Return an alert including its current incident correlation.
+
+    The incident ID is exposed through AlertResponse.incident_id.
+    """
+
+    service = AlertService(db)
+
+    alert = service.get_alert(
+        alert_id=alert_id,
+    )
+
+    if alert is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Alert not found.",
+        )
+
+    return alert
+
+
+@router.post(
+    "/{alert_id}/incident",
+    response_model=AlertResponse,
+)
+def attach_alert_to_incident(
+    alert_id: int,
+    payload: AlertIncidentAttach,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permission("alerts.update")
+    ),
+) -> AlertResponse:
+    """Associate an alert with an existing incident."""
+
+    service = AlertService(db)
+
+    try:
+        alert = service.attach_alert_to_incident(
+            alert_id=alert_id,
+            incident_id=payload.incident_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+    if alert is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Alert not found.",
+        )
+
+    db.commit()
+    db.refresh(alert)
+
+    return alert
+
+
+@router.delete(
+    "/{alert_id}/incident",
+    response_model=AlertResponse,
+)
+def detach_alert_from_incident(
+    alert_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_permission("alerts.update")
+    ),
+) -> AlertResponse:
+    """Remove the incident correlation from an alert."""
+
+    service = AlertService(db)
+
+    alert = service.detach_alert_from_incident(
+        alert_id=alert_id,
+    )
+
+    if alert is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Alert not found.",
+        )
+
+    db.commit()
+    db.refresh(alert)
+
+    return alert
 
 
 @router.get(
@@ -178,7 +323,7 @@ def assign_alert(
 
     if updates.assigned_to_user_id is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="assigned_to_user_id is required.",
         )
 

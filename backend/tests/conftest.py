@@ -19,19 +19,92 @@ from app.security.password import hash_password
 
 def _cleanup_test_data(db: Session) -> None:
     """
-    Remove database records created by integration tests.
+    Remove database records created by integration/API tests.
 
     Integration tests intentionally commit their transactions because
-    the application itself commits database changes. Therefore, a
-    normal session rollback cannot provide test isolation.
+    the application itself commits database changes. Therefore, normal
+    session rollback cannot provide test isolation.
 
-    This cleanup targets only records created by integration tests and
-    does not remove seeded production roles or permissions.
+    Cleanup is dependency-aware and removes child records before parent
+    records.
+
+    IMPORTANT:
+    This function only targets records created by tests. Seeded
+    production roles, permissions, and unrelated application data are
+    preserved.
     """
 
-    # ---------------------------------------------------------
-    # Detection Match test data
-    # ---------------------------------------------------------
+    # =========================================================
+    # ALERT TEST DATA
+    # =========================================================
+    #
+    # Alerts depend on:
+    #   - detection_matches
+    #   - security_events
+    #   - detection_rules
+    #   - incidents
+    #
+    # Delete alerts first.
+    #
+    db.execute(
+        text(
+            """
+            DELETE FROM alerts
+            WHERE title LIKE 'alert-api-%'
+            OR detection_match_id IN (
+                SELECT dm.id
+                FROM detection_matches AS dm
+                JOIN security_events AS se
+                    ON se.id = dm.security_event_id
+                WHERE se.source LIKE 'detection-match-%'
+                   OR se.source LIKE 'detection-match-integration-%'
+            )
+            OR detection_rule_id IN (
+                SELECT id
+                FROM detection_rules
+                WHERE name LIKE 'alert-api-%'
+                   OR name LIKE 'detection-match-%'
+                   OR name LIKE 'detection-match-integration-%'
+                   OR name = 'SSH Brute Force Test'
+            )
+            """
+        )
+    )
+
+    # =========================================================
+    # ALERT API TEST INCIDENTS
+    # =========================================================
+    #
+    # Incident.created_by_user_id uses ON DELETE RESTRICT.
+    #
+    # Therefore, Alert API test incidents MUST be deleted before
+    # Alert API test users.
+    #
+    # These incidents are created by users whose usernames start
+    # with:
+    #
+    #     alert-api-
+    #
+    db.execute(
+        text(
+            """
+            DELETE FROM incidents
+            WHERE created_by_user_id IN (
+                SELECT id
+                FROM users
+                WHERE username LIKE 'alert-api-%'
+            )
+            OR title LIKE 'alert-api-%'
+            """
+        )
+    )
+
+    # =========================================================
+    # DETECTION MATCH TEST DATA
+    # =========================================================
+    #
+    # DetectionMatch depends on security_events and detection_rules.
+    #
     db.execute(
         text(
             """
@@ -40,19 +113,36 @@ def _cleanup_test_data(db: Session) -> None:
                 SELECT id
                 FROM security_events
                 WHERE source LIKE 'detection-match-%'
+                   OR source LIKE 'detection-match-integration-%'
             )
             OR detection_rule_id IN (
                 SELECT id
                 FROM detection_rules
                 WHERE name LIKE 'detection-match-%'
+                   OR name LIKE 'detection-match-integration-%'
+                   OR name = 'SSH Brute Force Test'
             )
             """
         )
     )
 
-    # ---------------------------------------------------------
-    # Detection Rule test data
-    # ---------------------------------------------------------
+    # =========================================================
+    # SECURITY EVENT TEST DATA
+    # =========================================================
+    db.execute(
+        text(
+            """
+            DELETE FROM security_events
+            WHERE source = 'security-event-api-test'
+            OR source LIKE 'detection-match-%'
+            OR source LIKE 'detection-match-integration-%'
+            """
+        )
+    )
+
+    # =========================================================
+    # DETECTION RULE TEST DATA
+    # =========================================================
     db.execute(
         text(
             """
@@ -60,26 +150,64 @@ def _cleanup_test_data(db: Session) -> None:
             WHERE name LIKE 'api-%'
             OR name LIKE 'test-%'
             OR name LIKE 'detection-match-%'
+            OR name LIKE 'detection-match-integration-%'
+            OR name = 'SSH Brute Force Test'
             """
         )
     )
 
-    # ---------------------------------------------------------
-    # Security Event API test data
-    # ---------------------------------------------------------
+    # =========================================================
+    # ALERT API TEST USER-ROLE MAPPINGS
+    # =========================================================
+    #
+    # Alert API users have usernames:
+    #
+    #     alert-api-*
+    #
+    # Their roles are TEST_ROLE_*.
+    #
     db.execute(
         text(
             """
-            DELETE FROM security_events
-            WHERE source = 'security-event-api-test'
-            OR source LIKE 'detection-match-%'
+            DELETE FROM user_roles
+            WHERE user_id IN (
+                SELECT id
+                FROM users
+                WHERE username LIKE 'alert-api-%'
+            )
+            OR role_id IN (
+                SELECT id
+                FROM roles
+                WHERE name LIKE 'TEST_ROLE_%'
+            )
             """
         )
     )
 
-    # ---------------------------------------------------------
-    # Remove RBAC test role-permission mappings
-    # ---------------------------------------------------------
+    # =========================================================
+    # DETECTION / SECURITY EVENT TEST USER-ROLE MAPPINGS
+    # =========================================================
+    db.execute(
+        text(
+            """
+            DELETE FROM user_roles
+            WHERE user_id IN (
+                SELECT id
+                FROM users
+                WHERE username LIKE 'detection-match-%'
+            )
+            OR user_id IN (
+                SELECT id
+                FROM users
+                WHERE username LIKE 'detection-match-integration-%'
+            )
+            """
+        )
+    )
+
+    # =========================================================
+    # RBAC TEST ROLE-PERMISSION MAPPINGS
+    # =========================================================
     db.execute(
         text(
             """
@@ -93,9 +221,9 @@ def _cleanup_test_data(db: Session) -> None:
         )
     )
 
-    # ---------------------------------------------------------
-    # Remove RBAC test user-role mappings
-    # ---------------------------------------------------------
+    # =========================================================
+    # RBAC TEST USER-ROLE MAPPINGS
+    # =========================================================
     db.execute(
         text(
             """
@@ -114,9 +242,9 @@ def _cleanup_test_data(db: Session) -> None:
         )
     )
 
-    # ---------------------------------------------------------
-    # Remove Security Event API test user-role mappings
-    # ---------------------------------------------------------
+    # =========================================================
+    # SECURITY EVENT API TEST USER-ROLE MAPPINGS
+    # =========================================================
     db.execute(
         text(
             """
@@ -135,9 +263,9 @@ def _cleanup_test_data(db: Session) -> None:
         )
     )
 
-    # ---------------------------------------------------------
-    # Remove Detection Rule test users
-    # ---------------------------------------------------------
+    # =========================================================
+    # DETECTION RULE API TEST USERS
+    # =========================================================
     db.execute(
         text(
             """
@@ -147,21 +275,44 @@ def _cleanup_test_data(db: Session) -> None:
         )
     )
 
-    # ---------------------------------------------------------
-    # Remove Detection Match test users
-    # ---------------------------------------------------------
+    # =========================================================
+    # DETECTION MATCH TEST USERS
+    # =========================================================
     db.execute(
         text(
             """
             DELETE FROM users
             WHERE username LIKE 'detection-match-%'
+            OR username LIKE 'detection-match-integration-%'
             """
         )
     )
 
-    # ---------------------------------------------------------
-    # Remove Detection Rule API test users
-    # ---------------------------------------------------------
+    # =========================================================
+    # ALERT API TEST USERS
+    # =========================================================
+    #
+    # At this point:
+    #
+    #   - alert-api incidents are deleted
+    #   - user_roles mappings are deleted
+    #   - alerts are deleted
+    #
+    # Therefore the RESTRICT foreign key on
+    # incidents.created_by_user_id no longer blocks deletion.
+    #
+    db.execute(
+        text(
+            """
+            DELETE FROM users
+            WHERE username LIKE 'alert-api-%'
+            """
+        )
+    )
+
+    # =========================================================
+    # GENERAL API TEST USERS
+    # =========================================================
     db.execute(
         text(
             """
@@ -171,9 +322,9 @@ def _cleanup_test_data(db: Session) -> None:
         )
     )
 
-    # ---------------------------------------------------------
-    # Remove RBAC test roles
-    # ---------------------------------------------------------
+    # =========================================================
+    # RBAC TEST ROLES
+    # =========================================================
     db.execute(
         text(
             """
@@ -183,9 +334,9 @@ def _cleanup_test_data(db: Session) -> None:
         )
     )
 
-    # ---------------------------------------------------------
-    # Remove RBAC test users
-    # ---------------------------------------------------------
+    # =========================================================
+    # RBAC TEST USERS
+    # =========================================================
     db.execute(
         text(
             """
@@ -195,9 +346,9 @@ def _cleanup_test_data(db: Session) -> None:
         )
     )
 
-    # ---------------------------------------------------------
-    # Remove Security Event API test users
-    # ---------------------------------------------------------
+    # =========================================================
+    # SECURITY EVENT API TEST USERS
+    # =========================================================
     db.execute(
         text(
             """
@@ -237,7 +388,9 @@ def db_session() -> Session:
 
 
 @pytest.fixture
-def security_event(db_session: Session) -> SecurityEvent:
+def security_event(
+    db_session: Session,
+) -> SecurityEvent:
     """
     Create a security event for DetectionMatch repository tests.
     """
@@ -274,7 +427,9 @@ def security_event(db_session: Session) -> SecurityEvent:
 
 
 @pytest.fixture
-def another_security_event(db_session: Session) -> SecurityEvent:
+def another_security_event(
+    db_session: Session,
+) -> SecurityEvent:
     """
     Create a second security event for multi-record tests.
     """
@@ -308,7 +463,9 @@ def another_security_event(db_session: Session) -> SecurityEvent:
 
 
 @pytest.fixture
-def detection_rule(db_session: Session) -> DetectionRule:
+def detection_rule(
+    db_session: Session,
+) -> DetectionRule:
     """
     Create a detection rule for DetectionMatch repository tests.
     """
@@ -347,7 +504,9 @@ def detection_rule(db_session: Session) -> DetectionRule:
 
 
 @pytest.fixture
-def another_detection_rule(db_session: Session) -> DetectionRule:
+def another_detection_rule(
+    db_session: Session,
+) -> DetectionRule:
     """
     Create a second detection rule for multi-record tests.
     """

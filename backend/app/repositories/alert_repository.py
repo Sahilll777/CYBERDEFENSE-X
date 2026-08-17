@@ -23,6 +23,7 @@ class AlertRepository:
         description: str,
         status: str = "OPEN",
         assigned_to_user_id: int | None = None,
+        incident_id: int | None = None,
         opened_at: datetime | None = None,
     ) -> Alert:
         """Create and persist a security alert."""
@@ -36,6 +37,7 @@ class AlertRepository:
             title=title,
             description=description,
             assigned_to_user_id=assigned_to_user_id,
+            incident_id=incident_id,
             opened_at=opened_at,
         )
 
@@ -79,6 +81,7 @@ class AlertRepository:
         assigned_to_user_id: int | None = None,
         security_event_id: int | None = None,
         detection_rule_id: int | None = None,
+        incident_id: int | None = None,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
     ) -> list[Alert]:
@@ -111,6 +114,11 @@ class AlertRepository:
                 Alert.detection_rule_id == detection_rule_id
             )
 
+        if incident_id is not None:
+            statement = statement.where(
+                Alert.incident_id == incident_id
+            )
+
         if start_time is not None:
             statement = statement.where(
                 Alert.opened_at >= start_time
@@ -135,12 +143,39 @@ class AlertRepository:
             self.db.scalars(statement).all()
         )
 
+    def get_by_incident_id(
+        self,
+        incident_id: int,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[Alert]:
+        """Return alerts associated with a specific incident."""
+
+        statement = (
+            select(Alert)
+            .where(
+                Alert.incident_id == incident_id
+            )
+            .order_by(
+                Alert.opened_at.desc(),
+                Alert.id.desc(),
+            )
+            .offset(offset)
+            .limit(limit)
+        )
+
+        return list(
+            self.db.scalars(statement).all()
+        )
+
     def update(
         self,
         alert: Alert,
         *,
         status: str | None = None,
         assigned_to_user_id: int | None = None,
+        incident_id: int | None = None,
     ) -> Alert:
         """
         Update supported alert fields.
@@ -178,6 +213,39 @@ class AlertRepository:
 
         if assigned_to_user_id is not None:
             alert.assigned_to_user_id = assigned_to_user_id
+
+        if incident_id is not None:
+            alert.incident_id = incident_id
+
+        self.db.add(alert)
+        self.db.flush()
+        self.db.refresh(alert)
+
+        return alert
+
+    def attach_to_incident(
+        self,
+        alert: Alert,
+        *,
+        incident_id: int,
+    ) -> Alert:
+        """Associate an existing alert with an incident."""
+
+        alert.incident_id = incident_id
+
+        self.db.add(alert)
+        self.db.flush()
+        self.db.refresh(alert)
+
+        return alert
+
+    def detach_from_incident(
+        self,
+        alert: Alert,
+    ) -> Alert:
+        """Remove the alert's association with an incident."""
+
+        alert.incident_id = None
 
         self.db.add(alert)
         self.db.flush()

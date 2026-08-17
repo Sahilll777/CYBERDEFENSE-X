@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 
 from app.models.alert import Alert
 from app.repositories.alert_repository import AlertRepository
+from app.repositories.incident.incident_repository import (
+    IncidentRepository,
+)
 
 
 class AlertService:
@@ -18,6 +21,7 @@ class AlertService:
 
     def __init__(self, db: Session):
         self.alert_repository = AlertRepository(db)
+        self.incident_repository = IncidentRepository(db)
 
     def create_alert(
         self,
@@ -30,6 +34,7 @@ class AlertService:
         description: str,
         status: str = "OPEN",
         assigned_to_user_id: int | None = None,
+        incident_id: int | None = None,
         opened_at: datetime | None = None,
     ) -> Alert:
         """
@@ -37,6 +42,8 @@ class AlertService:
 
         A detection match can have only one alert. If an alert already
         exists for the detection match, return the existing alert.
+
+        If incident_id is provided, the referenced incident must exist.
         """
 
         existing_alert = (
@@ -48,6 +55,16 @@ class AlertService:
         if existing_alert is not None:
             return existing_alert
 
+        if incident_id is not None:
+            incident = self.incident_repository.get_by_id(
+                incident_id
+            )
+
+            if incident is None:
+                raise ValueError(
+                    f"Incident not found: {incident_id}."
+                )
+
         return self.alert_repository.create(
             detection_match_id=detection_match_id,
             security_event_id=security_event_id,
@@ -57,6 +74,7 @@ class AlertService:
             description=description,
             status=status,
             assigned_to_user_id=assigned_to_user_id,
+            incident_id=incident_id,
             opened_at=opened_at,
         )
 
@@ -92,6 +110,7 @@ class AlertService:
         assigned_to_user_id: int | None = None,
         security_event_id: int | None = None,
         detection_rule_id: int | None = None,
+        incident_id: int | None = None,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
     ) -> list[Alert]:
@@ -105,8 +124,92 @@ class AlertService:
             assigned_to_user_id=assigned_to_user_id,
             security_event_id=security_event_id,
             detection_rule_id=detection_rule_id,
+            incident_id=incident_id,
             start_time=start_time,
             end_time=end_time,
+        )
+
+    def get_alerts_for_incident(
+        self,
+        *,
+        incident_id: int,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[Alert]:
+        """
+        Retrieve alerts associated with a specific incident.
+
+        The incident must exist before its alerts are queried.
+        """
+
+        incident = self.incident_repository.get_by_id(
+            incident_id
+        )
+
+        if incident is None:
+            raise ValueError(
+                f"Incident not found: {incident_id}."
+            )
+
+        return self.alert_repository.get_by_incident_id(
+            incident_id,
+            limit=limit,
+            offset=offset,
+        )
+
+    def attach_alert_to_incident(
+        self,
+        *,
+        alert_id: int,
+        incident_id: int,
+    ) -> Alert | None:
+        """
+        Associate an existing alert with an existing incident.
+
+        Both entities must exist before the relationship is created.
+        """
+
+        alert = self.alert_repository.get_by_id(
+            alert_id
+        )
+
+        if alert is None:
+            return None
+
+        incident = self.incident_repository.get_by_id(
+            incident_id
+        )
+
+        if incident is None:
+            raise ValueError(
+                f"Incident not found: {incident_id}."
+            )
+
+        return self.alert_repository.attach_to_incident(
+            alert,
+            incident_id=incident_id,
+        )
+
+    def detach_alert_from_incident(
+        self,
+        *,
+        alert_id: int,
+    ) -> Alert | None:
+        """
+        Remove an alert's association with its incident.
+
+        The alert itself is preserved.
+        """
+
+        alert = self.alert_repository.get_by_id(
+            alert_id
+        )
+
+        if alert is None:
+            return None
+
+        return self.alert_repository.detach_from_incident(
+            alert
         )
 
     def update_alert(

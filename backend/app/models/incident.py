@@ -130,6 +130,12 @@ class Incident(Base):
         foreign_keys=[created_by_user_id],
     )
 
+    alerts = relationship(
+        "Alert",
+        foreign_keys="Alert.incident_id",
+        back_populates="incident",
+    )
+
     __table_args__ = (
         Index(
             "ix_incidents_status_opened_at",

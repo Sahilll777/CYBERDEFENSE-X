@@ -1,6 +1,3 @@
-
-
-
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
@@ -12,7 +9,10 @@ from app.models.user import User
 from app.security.jwt import create_access_token
 from app.security.password import hash_password
 
-client = TestClient(__import__("app.main", fromlist=["app"]).app)
+
+client = TestClient(
+    __import__("app.main", fromlist=["app"]).app
+)
 
 
 def create_search_test_user(
@@ -21,6 +21,8 @@ def create_search_test_user(
     email: str,
     permissions: list[str],
 ) -> User:
+    """Create a user with the requested permissions for search API tests."""
+
     db = SessionLocal()
 
     try:
@@ -37,20 +39,30 @@ def create_search_test_user(
         for index, permission_name in enumerate(permissions):
             permission = (
                 db.query(Permission)
-                .filter(Permission.name == permission_name)
+                .filter(
+                    Permission.name == permission_name
+                )
                 .first()
             )
 
             if permission is None:
                 permission = Permission(
                     name=permission_name,
-                    description=f"Search test permission: {permission_name}",
+                    description=(
+                        "Search test permission: "
+                        f"{permission_name}"
+                    ),
                 )
+
                 db.add(permission)
                 db.flush()
 
             role = Role(
-                name=f"SEARCH_TEST_ROLE_{username}_{index}",
+                name=(
+                    f"SEARCH_TEST_ROLE_"
+                    f"{username}_"
+                    f"{index}"
+                ),
                 description="Security event search test role",
             )
 
@@ -78,11 +90,24 @@ def create_search_test_user(
 
 
 def cleanup_search_test_data() -> None:
+    """
+    Remove all records created by the security-event search tests.
+
+    Search tests intentionally commit their transactions, so explicit
+    cleanup is required for test isolation.
+    """
+
     db = SessionLocal()
 
     try:
+        # ---------------------------------------------------------
+        # Remove search-test role/permission mappings.
+        # ---------------------------------------------------------
         db.execute(
-            __import__("sqlalchemy", fromlist=["text"]).text(
+            __import__(
+                "sqlalchemy",
+                fromlist=["text"],
+            ).text(
                 """
                 DELETE FROM role_permissions
                 WHERE role_id IN (
@@ -94,8 +119,14 @@ def cleanup_search_test_data() -> None:
             )
         )
 
+        # ---------------------------------------------------------
+        # Remove search-test user/role mappings.
+        # ---------------------------------------------------------
         db.execute(
-            __import__("sqlalchemy", fromlist=["text"]).text(
+            __import__(
+                "sqlalchemy",
+                fromlist=["text"],
+            ).text(
                 """
                 DELETE FROM user_roles
                 WHERE user_id IN (
@@ -112,8 +143,14 @@ def cleanup_search_test_data() -> None:
             )
         )
 
+        # ---------------------------------------------------------
+        # Remove search-test roles.
+        # ---------------------------------------------------------
         db.execute(
-            __import__("sqlalchemy", fromlist=["text"]).text(
+            __import__(
+                "sqlalchemy",
+                fromlist=["text"],
+            ).text(
                 """
                 DELETE FROM roles
                 WHERE name LIKE 'SEARCH_TEST_ROLE_%'
@@ -121,8 +158,14 @@ def cleanup_search_test_data() -> None:
             )
         )
 
+        # ---------------------------------------------------------
+        # Remove search-test users.
+        # ---------------------------------------------------------
         db.execute(
-            __import__("sqlalchemy", fromlist=["text"]).text(
+            __import__(
+                "sqlalchemy",
+                fromlist=["text"],
+            ).text(
                 """
                 DELETE FROM users
                 WHERE username LIKE 'search_%'
@@ -130,8 +173,14 @@ def cleanup_search_test_data() -> None:
             )
         )
 
+        # ---------------------------------------------------------
+        # Remove search-test security events.
+        # ---------------------------------------------------------
         db.execute(
-            __import__("sqlalchemy", fromlist=["text"]).text(
+            __import__(
+                "sqlalchemy",
+                fromlist=["text"],
+            ).text(
                 """
                 DELETE FROM security_events
                 WHERE source = 'search-test'
@@ -145,7 +194,11 @@ def cleanup_search_test_data() -> None:
         db.close()
 
 
-def authorization_header(user: User) -> dict[str, str]:
+def authorization_header(
+    user: User,
+) -> dict[str, str]:
+    """Create an Authorization header for a test user."""
+
     token = create_access_token(str(user.id))
 
     return {
@@ -154,13 +207,23 @@ def authorization_header(user: User) -> dict[str, str]:
 
 
 def create_search_test_events() -> None:
+    """
+    Create the controlled dataset used by search API tests.
+
+    All records use source='search-test' so that tests remain isolated
+    from unrelated security events already present in the database.
+    """
+
     db = SessionLocal()
 
     now = datetime.now(timezone.utc)
 
     try:
         db.execute(
-            __import__("sqlalchemy", fromlist=["text"]).text(
+            __import__(
+                "sqlalchemy",
+                fromlist=["text"],
+            ).text(
                 """
                 INSERT INTO security_events (
                     event_type,
@@ -272,12 +335,17 @@ def test_search_endpoint_requires_events_read_permission():
     try:
         response = client.get(
             "/api/v1/events/search",
-            params={"q": "login"},
+            params={
+                "q": "login",
+            },
             headers=authorization_header(user),
         )
 
         assert response.status_code == 403
-        assert response.json()["detail"] == "Permission required: events.read"
+        assert (
+            response.json()["detail"]
+            == "Permission required: events.read"
+        )
 
     finally:
         cleanup_search_test_data()
@@ -296,7 +364,10 @@ def test_search_security_events_by_message():
     try:
         response = client.get(
             "/api/v1/events/search",
-            params={"q": "failed login"},
+            params={
+                "q": "failed login",
+                "source": "search-test",
+            },
             headers=authorization_header(user),
         )
 
@@ -329,7 +400,10 @@ def test_search_security_events_is_case_insensitive():
     try:
         response = client.get(
             "/api/v1/events/search",
-            params={"q": "MALWARE"},
+            params={
+                "q": "MALWARE",
+                "source": "search-test",
+            },
             headers=authorization_header(user),
         )
 
@@ -338,7 +412,10 @@ def test_search_security_events_is_case_insensitive():
         data = response.json()
 
         assert data["total"] == 1
-        assert data["items"][0]["event_type"] == "MALWARE_DETECTED"
+        assert (
+            data["items"][0]["event_type"]
+            == "MALWARE_DETECTED"
+        )
 
     finally:
         cleanup_search_test_data()
@@ -357,7 +434,10 @@ def test_search_security_events_across_multiple_fields():
     try:
         response = client.get(
             "/api/v1/events/search",
-            params={"q": "web-server-01"},
+            params={
+                "q": "web-server-01",
+                "source": "search-test",
+            },
             headers=authorization_header(user),
         )
 
@@ -366,7 +446,10 @@ def test_search_security_events_across_multiple_fields():
 
         response = client.get(
             "/api/v1/events/search",
-            params={"q": "10.10.10.12"},
+            params={
+                "q": "10.10.10.12",
+                "source": "search-test",
+            },
             headers=authorization_header(user),
         )
 
@@ -375,7 +458,10 @@ def test_search_security_events_across_multiple_fields():
 
         response = client.get(
             "/api/v1/events/search",
-            params={"q": "alice"},
+            params={
+                "q": "alice",
+                "source": "search-test",
+            },
             headers=authorization_header(user),
         )
 
@@ -402,6 +488,7 @@ def test_search_security_events_supports_severity_filter():
             params={
                 "q": "login",
                 "severity": "HIGH",
+                "source": "search-test",
             },
             headers=authorization_header(user),
         )
@@ -411,6 +498,7 @@ def test_search_security_events_supports_severity_filter():
         data = response.json()
 
         assert data["total"] == 1
+        assert len(data["items"]) == 1
         assert data["items"][0]["severity"] == "HIGH"
 
     finally:
@@ -433,6 +521,7 @@ def test_search_security_events_supports_event_type_filter():
             params={
                 "q": "login",
                 "event_type": "LOGIN_FAILED",
+                "source": "search-test",
             },
             headers=authorization_header(user),
         )
@@ -491,14 +580,20 @@ def test_search_security_events_supports_time_range():
 
     now = datetime.now(timezone.utc)
 
-    start_time = (now - timedelta(minutes=8)).isoformat()
-    end_time = (now - timedelta(minutes=6)).isoformat()
+    start_time = (
+        now - timedelta(minutes=8)
+    ).isoformat()
+
+    end_time = (
+        now - timedelta(minutes=6)
+    ).isoformat()
 
     try:
         response = client.get(
             "/api/v1/events/search",
             params={
                 "q": "login",
+                "source": "search-test",
                 "start_time": start_time,
                 "end_time": end_time,
             },
@@ -531,6 +626,7 @@ def test_search_security_events_supports_pagination():
             "/api/v1/events/search",
             params={
                 "q": "login",
+                "source": "search-test",
                 "limit": 1,
                 "offset": 0,
             },
@@ -548,6 +644,7 @@ def test_search_security_events_supports_pagination():
             "/api/v1/events/search",
             params={
                 "q": "login",
+                "source": "search-test",
                 "limit": 1,
                 "offset": 1,
             },
@@ -583,7 +680,10 @@ def test_search_security_events_returns_newest_first():
     try:
         response = client.get(
             "/api/v1/events/search",
-            params={"q": "login"},
+            params={
+                "q": "login",
+                "source": "search-test",
+            },
             headers=authorization_header(user),
         )
 
@@ -592,7 +692,9 @@ def test_search_security_events_returns_newest_first():
         items = response.json()["items"]
 
         timestamps = [
-            datetime.fromisoformat(item["event_timestamp"])
+            datetime.fromisoformat(
+                item["event_timestamp"]
+            )
             for item in items
         ]
 
@@ -618,7 +720,10 @@ def test_search_security_events_returns_empty_result_when_nothing_matches():
     try:
         response = client.get(
             "/api/v1/events/search",
-            params={"q": "this-does-not-exist"},
+            params={
+                "q": "this-does-not-exist",
+                "source": "search-test",
+            },
             headers=authorization_header(user),
         )
 

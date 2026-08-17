@@ -226,7 +226,7 @@ def assign_incident(
 
     if updates.assigned_to_user_id is None:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="assigned_to_user_id is required.",
         )
 
@@ -265,7 +265,7 @@ def close_incident(
 
     if updates.status != IncidentStatus.CLOSED:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="status must be CLOSED.",
         )
 
