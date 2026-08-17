@@ -11,6 +11,9 @@ from app.core.config import get_settings
 from app.core.database import engine
 from app.api.incidents import router as incidents_router
 from app.api.playbooks import router as playbooks_router
+from app.api.playbook_executions import (
+    router as playbook_executions_router,
+)
 
 settings = get_settings()
 
@@ -30,6 +33,7 @@ app.include_router(detection_matches_router)
 app.include_router(alerts_router)
 app.include_router(incidents_router)
 app.include_router(playbooks_router)
+app.include_router(playbook_executions_router)
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
