@@ -117,6 +117,14 @@ class PlaybookExecution(Base):
         foreign_keys=[triggered_by_user_id],
     )
 
+    actions = relationship(
+        "PlaybookExecutionAction",
+        foreign_keys="PlaybookExecutionAction.execution_id",
+        back_populates="execution",
+        cascade="all, delete-orphan",
+        order_by="PlaybookExecutionAction.action_index",
+    )
+
     __table_args__ = (
         Index(
             "ix_playbook_executions_status_created_at",

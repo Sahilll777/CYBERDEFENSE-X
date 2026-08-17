@@ -6,6 +6,9 @@ from app.models.incident import Incident
 from app.models.permission import Permission
 from app.models.playbook import Playbook
 from app.models.playbook_execution import PlaybookExecution
+from app.models.playbook_execution_action import (
+    PlaybookExecutionAction,
+)
 from app.models.role import Role
 from app.models.security_event import SecurityEvent
 from app.models.user import User
@@ -18,6 +21,7 @@ __all__ = [
     "Permission",
     "Playbook",
     "PlaybookExecution",
+    "PlaybookExecutionAction",
     "Role",
     "SecurityEvent",
     "User",
