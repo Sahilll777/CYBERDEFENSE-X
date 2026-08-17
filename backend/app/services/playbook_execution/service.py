@@ -4,11 +4,12 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.models.playbook_execution import PlaybookExecution
-from app.repositories.playbook_execution import (
-    PlaybookExecutionRepository,
-)
 from app.repositories.playbook.playbook_repository import (
     PlaybookRepository,
+)
+from app.repositories.playbook_execution import (
+    PlaybookExecutionActionRepository,
+    PlaybookExecutionRepository,
 )
 from app.services.playbook_execution.engine import (
     PlaybookExecutionEngine,
@@ -28,6 +29,9 @@ class PlaybookExecutionService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.repository = PlaybookExecutionRepository(db)
+        self.action_repository = (
+            PlaybookExecutionActionRepository(db)
+        )
         self.playbook_repository = PlaybookRepository(db)
         self.engine = PlaybookExecutionEngine()
 
@@ -94,6 +98,16 @@ class PlaybookExecutionService:
             status=status,
         )
 
+    def list_action_executions(
+        self,
+        execution_id: int,
+    ):
+        """Return persisted action records for an execution."""
+
+        return self.action_repository.list_by_execution_id(
+            execution_id
+        )
+
     def start_execution(
         self,
         execution_id: int,
@@ -123,10 +137,8 @@ class PlaybookExecutionService:
         context: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Execute a running playbook execution.
-
-        The execution must already be in the RUNNING state.
-        The playbook is resolved from the execution record.
+        Execute a running playbook execution and persist
+        every individual action result.
         """
 
         execution = self._get_required_execution(
@@ -147,10 +159,92 @@ class PlaybookExecutionService:
                 f"Playbook {execution.playbook_id} not found."
             )
 
-        return self.engine.execute(
-            playbook=playbook,
-            context=context,
+        if not playbook.enabled:
+            raise ValueError(
+                f"Playbook '{playbook.name}' is disabled."
+            )
+
+        actions = self.engine.get_actions(
+            playbook.definition
         )
+
+        execution_context = (
+            context.copy()
+            if context is not None
+            else {}
+        )
+
+        results: list[dict[str, Any]] = []
+
+        for index, action in enumerate(actions):
+            action_type = action["type"]
+            parameters = action["parameters"]
+
+            started_at = datetime.now(timezone.utc)
+
+            action_record = self.action_repository.create(
+                execution_id=execution.id,
+                action_index=index,
+                action_type=action_type,
+                parameters=parameters,
+                status="PENDING",
+            )
+
+            self.action_repository.mark_running(
+                action_record,
+                started_at=started_at,
+            )
+
+            try:
+                result = self.engine.execute_action(
+                    action_type=action_type,
+                    parameters=parameters,
+                    context=execution_context,
+                )
+
+            except Exception as exc:
+                completed_at = datetime.now(timezone.utc)
+                error_message = str(exc)
+
+                self.action_repository.mark_failed(
+                    action_record,
+                    completed_at=completed_at,
+                    error_message=error_message,
+                )
+
+                results.append(
+                    {
+                        "index": index,
+                        "type": action_type,
+                        "status": "FAILED",
+                        "result": None,
+                        "error_message": error_message,
+                    }
+                )
+
+                raise
+
+            completed_at = datetime.now(timezone.utc)
+
+            self.action_repository.mark_completed(
+                action_record,
+                completed_at=completed_at,
+                result=result,
+            )
+
+            results.append(
+                {
+                    "index": index,
+                    "type": action_type,
+                    "status": result.get(
+                        "status",
+                        "SUCCESS",
+                    ),
+                    "result": result,
+                }
+            )
+
+        return results
 
     def complete_execution(
         self,
@@ -216,11 +310,11 @@ class PlaybookExecutionService:
         Flow:
 
             PENDING
-              ↓
+              ?
             RUNNING
-              ↓
-            ENGINE
-              ↓
+              ?
+            ACTION 0 ? ACTION 1 ? ACTION N
+              ?
         COMPLETED / FAILED
         """
 
@@ -285,7 +379,7 @@ class PlaybookExecutionService:
         current_status: str,
         target_status: str,
     ) -> None:
-        """Validate a playbook execution state transition."""
+        """Validate a playbook execution status transition."""
 
         allowed_targets = self.ALLOWED_TRANSITIONS.get(
             current_status,

@@ -14,9 +14,9 @@ class PlaybookExecutionEngine:
     """
     Execute the action definition of a security playbook.
 
-    The engine is responsible only for interpreting and dispatching
-    playbook actions. Execution lifecycle state is managed by
-    PlaybookExecutionService.
+    The engine is responsible only for validating, interpreting,
+    and dispatching playbook actions. Execution lifecycle state
+    and persistence are managed by PlaybookExecutionService.
     """
 
     def __init__(
@@ -31,9 +31,7 @@ class PlaybookExecutionEngine:
                 CreateIncidentHandler(),
             ]
 
-        self.registry = PlaybookActionRegistry(
-            handlers
-        )
+        self.registry = PlaybookActionRegistry(handlers)
 
     def execute(
         self,
@@ -53,9 +51,7 @@ class PlaybookExecutionEngine:
                 f"Playbook '{playbook.name}' is disabled."
             )
 
-        actions = self._extract_actions(
-            playbook.definition
-        )
+        actions = self.get_actions(playbook.definition)
 
         execution_context = (
             context.copy()
@@ -66,19 +62,16 @@ class PlaybookExecutionEngine:
         results: list[dict[str, Any]] = []
 
         for index, action in enumerate(actions):
-            action_type = action["type"]
-            parameters = action["parameters"]
-
-            result = self.registry.execute(
-                action_type=action_type,
-                parameters=parameters,
+            result = self.execute_action(
+                action_type=action["type"],
+                parameters=action["parameters"],
                 context=execution_context,
             )
 
             results.append(
                 {
                     "index": index,
-                    "type": action_type,
+                    "type": action["type"],
                     "status": result.get(
                         "status",
                         "SUCCESS",
@@ -89,16 +82,62 @@ class PlaybookExecutionEngine:
 
         return results
 
+    def execute_action(
+        self,
+        *,
+        action_type: str,
+        parameters: dict[str, Any],
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Execute one validated playbook action.
+
+        This is the public action-dispatch API used by the
+        PlaybookExecutionService when action-level persistence
+        is required.
+        """
+
+        if not isinstance(action_type, str):
+            raise ValueError(
+                "Playbook action type must be a string."
+            )
+
+        action_type = action_type.strip()
+
+        if not action_type:
+            raise ValueError(
+                "Playbook action type cannot be empty."
+            )
+
+        if not isinstance(parameters, dict):
+            raise ValueError(
+                "Playbook action parameters must be an object."
+            )
+
+        if not isinstance(context, dict):
+            raise ValueError(
+                "Playbook execution context must be an object."
+            )
+
+        return self.registry.execute(
+            action_type=action_type,
+            parameters=parameters,
+            context=context,
+        )
+
     def supported_actions(self) -> list[str]:
         """Return all registered action types."""
 
         return self.registry.supported_actions()
 
     @staticmethod
-    def _extract_actions(
+    def get_actions(
         definition: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        """Validate and extract actions from a playbook definition."""
+        """
+        Validate and extract normalized actions from a
+        playbook definition.
+        """
 
         if not isinstance(definition, dict):
             raise ValueError(
