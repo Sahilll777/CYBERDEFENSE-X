@@ -1,0 +1,296 @@
+.topbar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: var(--sidebar-width);
+  z-index: var(--z-sticky);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  height: var(--topbar-height);
+  padding: 0 var(--space-6);
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(11, 17, 24, 0.96),
+      rgba(8, 13, 19, 0.92)
+    );
+
+  border-bottom: 1px solid var(--color-border-default);
+
+  backdrop-filter: blur(18px);
+
+  transition: left var(--transition-slow);
+}
+
+.topbar__left,
+.topbar__right {
+  display: flex;
+  align-items: center;
+}
+
+.topbar__left {
+  min-width: 0;
+}
+
+.topbar__context {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.topbar__context-icon {
+  display: grid;
+  place-items: center;
+
+  width: 32px;
+  height: 32px;
+
+  color: var(--color-brand-400);
+
+  background: rgba(13, 197, 232, 0.06);
+
+  border: 1px solid rgba(13, 197, 232, 0.12);
+  border-radius: var(--radius-md);
+}
+
+.topbar__context-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.topbar__eyebrow {
+  color: var(--color-text-muted);
+
+  font-family: var(--font-family-mono);
+  font-size: 0.49rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.11em;
+}
+
+.topbar__title {
+  color: var(--color-text-primary);
+
+  font-size: 0.82rem;
+  font-weight: var(--font-weight-semibold);
+}
+
+.topbar__right {
+  gap: var(--space-4);
+}
+
+.topbar__system {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  color: var(--color-success-400);
+
+  font-family: var(--font-family-mono);
+  font-size: 0.55rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.07em;
+}
+
+.topbar__system-dot {
+  width: 6px;
+  height: 6px;
+
+  background: var(--color-success-500);
+  border-radius: 50%;
+
+  box-shadow: 0 0 9px var(--color-success-500);
+}
+
+.topbar__divider {
+  width: 1px;
+  height: 22px;
+
+  background: var(--color-border-default);
+}
+
+.topbar__clock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  color: var(--color-text-muted);
+
+  font-family: var(--font-family-mono);
+  font-size: 0.53rem;
+  letter-spacing: 0.06em;
+}
+
+.topbar__clock strong {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.topbar__icon-button {
+  position: relative;
+
+  display: grid;
+  place-items: center;
+
+  width: 34px;
+  height: 34px;
+
+  color: var(--color-text-tertiary);
+
+  background: transparent;
+
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+
+  cursor: pointer;
+
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.topbar__icon-button:hover {
+  color: var(--color-brand-300);
+
+  background: rgba(13, 197, 232, 0.06);
+
+  border-color: rgba(13, 197, 232, 0.12);
+}
+
+.topbar__notification-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+
+  width: 5px;
+  height: 5px;
+
+  background: var(--color-danger-500);
+  border-radius: 50%;
+
+  box-shadow: 0 0 7px var(--color-danger-500);
+}
+
+.topbar__profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.topbar__avatar {
+  display: grid;
+  place-items: center;
+
+  width: 32px;
+  height: 32px;
+
+  color: var(--color-brand-300);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(13, 197, 232, 0.14),
+      rgba(13, 197, 232, 0.04)
+    );
+
+  border: 1px solid rgba(13, 197, 232, 0.2);
+  border-radius: var(--radius-md);
+
+  font-family: var(--font-family-mono);
+  font-size: 0.57rem;
+  font-weight: var(--font-weight-semibold);
+}
+
+.topbar__profile-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.topbar__profile-name {
+  color: var(--color-text-secondary);
+
+  font-size: 0.64rem;
+  font-weight: var(--font-weight-medium);
+}
+
+.topbar__profile-role {
+  color: var(--color-text-muted);
+
+  font-family: var(--font-family-mono);
+  font-size: 0.46rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+}
+
+.topbar__mobile-menu {
+  display: none;
+}
+
+/* ============================================================
+   Collapsed Sidebar Support
+   ============================================================ */
+
+@media (min-width: 901px) {
+  .topbar {
+    /* AppShell updates this when the sidebar is collapsed. */
+  }
+}
+
+/* ============================================================
+   Mobile
+   ============================================================ */
+
+@media (max-width: 900px) {
+  .topbar {
+    left: 0;
+
+    padding: 0 var(--space-4);
+  }
+
+  .topbar__mobile-menu {
+    display: grid;
+    place-items: center;
+
+    width: 34px;
+    height: 34px;
+
+    margin-right: var(--space-3);
+
+    color: var(--color-text-tertiary);
+
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+
+    cursor: pointer;
+  }
+
+  .topbar__mobile-menu:hover {
+    color: var(--color-brand-300);
+    background: rgba(13, 197, 232, 0.06);
+    border-color: rgba(13, 197, 232, 0.12);
+  }
+
+  .topbar__system,
+  .topbar__divider,
+  .topbar__clock,
+  .topbar__profile-copy {
+    display: none;
+  }
+
+  .topbar__right {
+    gap: var(--space-2);
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar__context-copy {
+    display: none;
+  }
+}

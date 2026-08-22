@@ -1,0 +1,187 @@
+:root {
+  /* ============================================================
+     CYBERDEFENSE-X
+     Global Design Tokens
+     ============================================================ */
+
+  /* -------------------------
+     Brand
+     ------------------------- */
+  --color-brand-50: #eefcff;
+  --color-brand-100: #d5f7ff;
+  --color-brand-200: #aeeeff;
+  --color-brand-300: #72e3ff;
+  --color-brand-400: #32d5f5;
+  --color-brand-500: #0dc5e8;
+  --color-brand-600: #08a4c4;
+  --color-brand-700: #07839e;
+  --color-brand-800: #0a687e;
+  --color-brand-900: #0b5265;
+
+  /* -------------------------
+     Application Backgrounds
+     ------------------------- */
+  --color-bg-root: #060a0f;
+  --color-bg-primary: #080d13;
+  --color-bg-secondary: #0b1118;
+  --color-bg-tertiary: #0f1721;
+
+  --color-surface-1: #101923;
+  --color-surface-2: #131e29;
+  --color-surface-3: #172431;
+  --color-surface-hover: #1b2a38;
+
+  /* -------------------------
+     Borders
+     ------------------------- */
+  --color-border-subtle: rgba(148, 163, 184, 0.08);
+  --color-border-default: rgba(148, 163, 184, 0.14);
+  --color-border-strong: rgba(148, 163, 184, 0.24);
+  --color-border-brand: rgba(13, 197, 232, 0.35);
+
+  /* -------------------------
+     Text
+     ------------------------- */
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #b5c1cd;
+  --color-text-tertiary: #7e8d9d;
+  --color-text-muted: #596878;
+  --color-text-disabled: #3d4a56;
+  --color-text-inverse: #061017;
+
+  /* -------------------------
+     Security States
+     ------------------------- */
+  --color-success-50: #ecfdf5;
+  --color-success-400: #34d399;
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-success-glow: rgba(16, 185, 129, 0.18);
+
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-glow: rgba(245, 158, 11, 0.18);
+
+  --color-danger-400: #fb7185;
+  --color-danger-500: #f43f5e;
+  --color-danger-600: #e11d48;
+  --color-danger-glow: rgba(244, 63, 94, 0.18);
+
+  --color-info-400: #60a5fa;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+  --color-info-glow: rgba(59, 130, 246, 0.18);
+
+  /* -------------------------
+     Severity
+     ------------------------- */
+  --severity-critical: #ff3b5c;
+  --severity-high: #ff7043;
+  --severity-medium: #f5a623;
+  --severity-low: #3b9cff;
+  --severity-info: #64748b;
+
+  /* -------------------------
+     Typography
+     ------------------------- */
+  --font-family-sans:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  --font-family-mono:
+    "JetBrains Mono",
+    "Cascadia Code",
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+
+  --font-size-xs: 0.6875rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-base: 0.875rem;
+  --font-size-md: 0.9375rem;
+  --font-size-lg: 1rem;
+  --font-size-xl: 1.125rem;
+  --font-size-2xl: 1.375rem;
+  --font-size-3xl: 1.75rem;
+  --font-size-4xl: 2.25rem;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.7;
+
+  /* -------------------------
+     Spacing
+     ------------------------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* -------------------------
+     Radius
+     ------------------------- */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-full: 9999px;
+
+  /* -------------------------
+     Shadows
+     ------------------------- */
+  --shadow-sm:
+    0 1px 2px rgba(0, 0, 0, 0.25);
+
+  --shadow-md:
+    0 8px 24px rgba(0, 0, 0, 0.28);
+
+  --shadow-lg:
+    0 16px 48px rgba(0, 0, 0, 0.36);
+
+  --shadow-brand:
+    0 0 28px rgba(13, 197, 232, 0.12);
+
+  /* -------------------------
+     Layout
+     ------------------------- */
+  --sidebar-width: 248px;
+  --sidebar-collapsed-width: 72px;
+  --topbar-height: 64px;
+  --content-max-width: 1800px;
+
+  /* -------------------------
+     Transitions
+     ------------------------- */
+  --transition-fast: 120ms ease;
+  --transition-normal: 180ms ease;
+  --transition-slow: 280ms ease;
+
+  /* -------------------------
+     Z-Index
+     ------------------------- */
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}
